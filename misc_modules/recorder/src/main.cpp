@@ -89,6 +89,9 @@ public:
             }
             strcpy(nameTemplate, _nameTemplate.c_str());
         }
+        if (config.conf[name].contains("useUtcTimestamp")) {
+            useUtcTimestamp = config.conf[name]["useUtcTimestamp"];
+        }
         config.release();
 
         // Init audio path
@@ -263,6 +266,12 @@ private:
         if (ImGui::InputText(CONCAT("##_recorder_name_template_", _this->name), _this->nameTemplate, 1023)) {
             config.acquire();
             config.conf[_this->name]["nameTemplate"] = _this->nameTemplate;
+            config.release(true);
+        }
+
+        if (ImGui::Checkbox(CONCAT("Use UTC Timestamp##_recorder_use_utc_timestamp_", _this->name), &_this->useUtcTimestamp)) {
+            config.acquire();
+            config.conf[_this->name]["useUtcTimestamp"] = _this->useUtcTimestamp;
             config.release(true);
         }
 
@@ -454,7 +463,12 @@ private:
     std::string genFileName(std::string templ, int mode, std::string name) {
         // Get data
         time_t now = time(0);
-        tm* ltm = localtime(&now);
+        tm* tm;
+        if (useUtcTimestamp) {
+            tm = gmtime(&now);
+        } else {
+            tm = localtime(&now);
+        }
         char buf[1024];
         double freq = gui::waterfall.getCenterFrequency();
         if (gui::waterfall.vfos.find(name) != gui::waterfall.vfos.end()) {
@@ -474,12 +488,12 @@ private:
         char yearStr[128];
         const char* modeStr = (recMode == RECORDER_MODE_AUDIO) ? "Unknown" : "IQ";
         sprintf(freqStr, "%.0lfHz", freq);
-        sprintf(hourStr, "%02d", ltm->tm_hour);
-        sprintf(minStr, "%02d", ltm->tm_min);
-        sprintf(secStr, "%02d", ltm->tm_sec);
-        sprintf(dayStr, "%02d", ltm->tm_mday);
-        sprintf(monStr, "%02d", ltm->tm_mon + 1);
-        sprintf(yearStr, "%02d", ltm->tm_year + 1900);
+        sprintf(hourStr, "%02d", tm->tm_hour);
+        sprintf(minStr, "%02d", tm->tm_min);
+        sprintf(secStr, "%02d", tm->tm_sec);
+        sprintf(dayStr, "%02d", tm->tm_mday);
+        sprintf(monStr, "%02d", tm->tm_mon + 1);
+        sprintf(yearStr, "%02d", tm->tm_year + 1900);
         if (core::modComManager.getModuleName(name) == "radio") {
             int mode = -1;
             core::modComManager.callInterface(name, RADIO_IFACE_CMD_GET_MODE, NULL, &mode);
@@ -563,6 +577,7 @@ private:
     bool enabled = true;
     std::string root;
     char nameTemplate[1024];
+    bool useUtcTimestamp = false;
 
     OptionList<std::string, wav::Format> containers;
     OptionList<int, wav::SampleType> sampleTypes;
